@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WEBP 上下合併</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f5f2;--card:#fff;--ink:#1d1d1b;--mute:#6b6a66;--line:#dcdad3;--acc:#2f6fed;--acc-ink:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#212120;--ink:#ecebe7;--mute:#9a9892;--line:#3a3a37;--acc:#6b9bff;--acc-ink:#0b1020}}
+:root[data-theme="dark"]{--bg:#161615;--card:#212120;--ink:#ecebe7;--mute:#9a9892;--line:#3a3a37;--acc:#6b9bff;--acc-ink:#0b1020}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
+main{max-width:880px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;margin:0 0 4px}
+p.sub{margin:0 0 16px;color:var(--mute);font-size:13px}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.slots{grid-template-columns:1fr}}
+.slot{background:var(--card);border:2px dashed var(--line);border-radius:12px;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;text-align:center;cursor:pointer;position:relative;transition:border-color .15s}
+.slot.drag{border-color:var(--acc)}
+.slot b{font-size:14px}
+.slot span{color:var(--mute);font-size:12px}
+.slot img{max-width:100%;max-height:140px;border-radius:6px;margin-bottom:6px;object-fit:contain}
+.slot input{display:none}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mute)}
+select,input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 8px;width:100%}
+input[type=color]{width:100%;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:2px}
+input[type=range]{width:100%}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{font:inherit;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;cursor:pointer}
+button.primary{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+button:disabled{opacity:.4;cursor:not-allowed}
+.preview{margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.preview canvas{max-width:100%;height:auto;border-radius:6px;background:
+ conic-gradient(#8883 25%,transparent 0 50%,#8883 0 75%,transparent 0) 0 0/16px 16px}
+.info{color:var(--mute);font-size:12px;margin-top:6px}
+.empty{color:var(--mute);padding:30px 0}
+#msg{margin-top:8px;font-size:13px;min-height:20px}
+</style>
+</head>
+<body>
+<main>
+<h1>WEBP 上下合併</h1>
+<p class="sub">選兩張圖（可拖放），上圖在上、下圖在下，預覽後再決定要不要儲存。圖片只在你的瀏覽器內處理，不會上傳。</p>
+
+<div class="slots">
+  <div class="slot" id="slotTop"><b>上方圖片</b><span>點擊或拖放 WEBP 到這裡</span><input type="file" accept="image/webp,image/*"></div>
+  <div class="slot" id="slotBot"><b>下方圖片</b><span>點擊或拖放 WEBP 到這裡</span><input type="file" accept="image/webp,image/*"></div>
+</div>
+
+<div class="panel">
+  <label>寬度對齊
+    <select id="fit">
+      <option value="max">放大到較寬的那張</option>
+      <option value="min">縮小到較窄的那張</option>
+      <option value="top">以上圖寬度為準</option>
+      <option value="bot">以下圖寬度為準</option>
+      <option value="none">保持原尺寸（置中）</option>
+    </select>
+  </label>
+  <label>間距（px）<input type="number" id="gap" value="0" min="0" max="500"></label>
+  <label>背景色<input type="color" id="bg" value="#ffffff"></label>
+  <label>輸出格式
+    <select id="fmt"><option value="webp">WEBP</option><option value="png">PNG</option><option value="jpg">JPG</option></select>
+  </label>
+  <label>品質 <span id="qv">90%</span><input type="range" id="q" min="40" max="100" value="90"></label>
+  <label>檔名<input type="text" id="name" value="merged"></label>
+</div>
+
+<div class="row">
+  <button id="swap" disabled>↕ 對調上下</button>
+  <button id="clear" disabled>清除</button>
+  <button class="primary" id="save" disabled>儲存檔案</button>
+</div>
+<div id="msg"></div>
+
+<div class="preview" id="prev"><div class="empty">放入兩張圖片後，這裡會顯示合併預覽</div></div>
+</main>
+
+<script>
+const imgs={top:null,bot:null};
+const $=id=>document.getElementById(id);
+const cv=document.createElement('canvas');
+const slots={top:$('slotTop'),bot:$('slotBot')};
+
+function setup(key){
+  const el=slots[key],inp=el.querySelector('input');
+  el.onclick=()=>inp.click();
+  inp.onchange=()=>inp.files[0]&&load(key,inp.files[0]);
+  el.ondragover=e=>{e.preventDefault();el.classList.add('drag')};
+  el.ondragleave=()=>el.classList.remove('drag');
+  el.ondrop=e=>{e.preventDefault();el.classList.remove('drag');const f=e.dataTransfer.files[0];f&&load(key,f)};
+}
+setup('top');setup('bot');
+
+function load(key,file){
+  if(!file.type.startsWith('image/')){$('msg').textContent='請選擇圖片檔。';return}
+  const url=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{imgs[key]={im,url,name:file.name,w:im.naturalWidth,h:im.naturalHeight};renderSlots();draw()};
+  im.onerror=()=>{$('msg').textContent='無法讀取這個檔案。'};
+  im.src=url;
+}
+
+function renderSlots(){
+  for(const k of['top','bot']){
+    const el=slots[k],d=imgs[k],label=k==='top'?'上方圖片':'下方圖片',inp=el.querySelector('input');
+    el.innerHTML='';
+    if(d){
+      const i=document.createElement('img');i.src=d.url;el.appendChild(i);
+      const b=document.createElement('b');b.textContent=label;el.appendChild(b);
+      const s=document.createElement('span');s.textContent=d.name+'（'+d.w+'×'+d.h+'）';el.appendChild(s);
+    }else{
+      el.innerHTML='<b>'+label+'</b><span>點擊或拖放 WEBP 到這裡</span>';
+    }
+    el.appendChild(inp);
+  }
+  $('swap').disabled=!(imgs.top||imgs.bot);
+  $('clear').disabled=!(imgs.top||imgs.bot);
+}
+
+function draw(){
+  const a=imgs.top,b=imgs.bot,prev=$('prev');
+  $('save').disabled=!(a&&b);
+  if(!(a&&b)){prev.innerHTML='<div class="empty">放入兩張圖片後，這裡會顯示合併預覽</div>';return}
+  const fit=$('fit').value,gap=Math.max(0,+$('gap').value||0);
+  let W;
+  if(fit==='max')W=Math.max(a.w,b.w);
+  else if(fit==='min')W=Math.min(a.w,b.w);
+  else if(fit==='top')W=a.w;
+  else if(fit==='bot')W=b.w;
+  else W=Math.max(a.w,b.w);
+  const place=d=>{
+    if(fit==='none')return{w:d.w,h:d.h};
+    const s=W/d.w;return{w:W,h:Math.round(d.h*s)};
+  };
+  const pa=place(a),pb=place(b);
+  const H=pa.h+gap+pb.h;
+  cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.imageSmoothingQuality='high';
+  if($('fmt').value!=='png'||true){ctx.fillStyle=$('bg').value;ctx.fillRect(0,0,W,H)}
+  ctx.drawImage(a.im,Math.round((W-pa.w)/2),0,pa.w,pa.h);
+  ctx.drawImage(b.im,Math.round((W-pb.w)/2),pa.h+gap,pb.w,pb.h);
+  prev.innerHTML='';prev.appendChild(cv);
+  const t=document.createElement('div');t.className='info';t.textContent='輸出尺寸：'+W+' × '+H+' px';prev.appendChild(t);
+}
+
+['fit','gap','bg'].forEach(id=>$(id).addEventListener('input',draw));
+$('fmt').onchange=()=>{$('q').disabled=$('fmt').value==='png'};
+$('q').oninput=()=>$('qv').textContent=$('q').value+'%';
+
+$('swap').onclick=()=>{[imgs.top,imgs.bot]=[imgs.bot,imgs.top];renderSlots();draw()};
+$('clear').onclick=()=>{imgs.top=imgs.bot=null;renderSlots();draw();$('msg').textContent=''};
+
+$('save').onclick=async()=>{
+  const fmt=$('fmt').value,mime={webp:'image/webp',png:'image/png',jpg:'image/jpeg'}[fmt];
+  const q=+$('q').value/100;
+  const blob=await new Promise(r=>cv.toBlob(r,mime,q));
+  if(!blob){$('msg').textContent='此瀏覽器無法輸出 '+fmt.toUpperCase()+'，請換其他格式。';return}
+  const fname=($('name').value.trim()||'merged').replace(/[\\/:*?"<>|]/g,'_')+'.'+fmt;
+  let dl=null;
+  try{dl=window.claude&&await claude.use('downloads')}catch(e){}
+  try{
+    if(dl){await dl.save({filename:fname,data:blob})}
+    else{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();a.remove()}
+    $('msg').textContent='已送出儲存：'+fname+'（'+(blob.size/1024).toFixed(0)+' KB）';
+  }catch(e){
+    $('msg').textContent=e&&e.code==='declined'?'已取消儲存。':'儲存失敗，請再試一次。';
+  }
+};
+</script>
+</body>
+</html>
